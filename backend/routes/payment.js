@@ -16,7 +16,7 @@ function getClientIp(req) {
 }
 
 // 获取微信 OAuth 授权链接（用于 JSAPI 获取 openid）
-router.post('/wechat/auth-url', authMiddleware, (req, res) => {
+router.post('/wechat/auth-url', authMiddleware, async (req, res) => {
   try {
     if (!isWechatOauthReady()) {
       return error(res, '微信 OAuth 未配置，请联系管理员', 500, 500)
@@ -27,7 +27,7 @@ router.post('/wechat/auth-url', authMiddleware, (req, res) => {
 
     const db = getDb()
     const state = crypto.randomBytes(16).toString('hex')
-    db.prepare('INSERT INTO wechat_oauth_states (state, user_id, redirect) VALUES (?, ?, ?)')
+    await db.prepare('INSERT INTO wechat_oauth_states (state, user_id, redirect) VALUES (?, ?, ?)')
       .run(state, req.userId, redirect)
 
     const callbackUrl = `${WECHAT_PAY_CONFIG.h5WapUrl}/api/pay/wechat/callback`
@@ -51,7 +51,7 @@ router.get('/wechat/callback', async (req, res) => {
     }
 
     const db = getDb()
-    const row = db.prepare('SELECT * FROM wechat_oauth_states WHERE state = ?').get(state)
+    const row = await db.prepare('SELECT * FROM wechat_oauth_states WHERE state = ?').get(state)
     if (!row) {
       res.status(400).send('Invalid state')
       return
@@ -65,8 +65,8 @@ router.get('/wechat/callback', async (req, res) => {
       return
     }
 
-    db.prepare('UPDATE users SET openid = ? WHERE id = ?').run(openid, row.user_id)
-    db.prepare('DELETE FROM wechat_oauth_states WHERE state = ?').run(state)
+    await db.prepare('UPDATE users SET openid = ? WHERE id = ?').run(openid, row.user_id)
+    await db.prepare('DELETE FROM wechat_oauth_states WHERE state = ?').run(state)
 
     const redirectUrl = new URL(row.redirect)
     redirectUrl.searchParams.set('wx_oauth', '1')
@@ -89,7 +89,7 @@ router.post('/create', authMiddleware, async (req, res) => {
       return error(res, '订单ID和支付方式不能为空', 400, 400)
     }
 
-    const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(orderId, req.userId)
+    const order = await db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(orderId, req.userId)
     if (!order) return error(res, '订单不存在', 404, 404)
     if (order.status !== 'pending') return error(res, '订单状态不允许支付', 400, 400)
 
@@ -109,7 +109,7 @@ router.post('/create', authMiddleware, async (req, res) => {
       // openid 优先从订单/用户信息获取
       let openid = order.openid
       if (!openid) {
-        const u = db.prepare('SELECT openid FROM users WHERE id = ?').get(req.userId)
+        const u = await db.prepare('SELECT openid FROM users WHERE id = ?').get(req.userId)
         openid = u?.openid
       }
       if (!openid) return error(res, '未获取到openid，请在微信内打开并完成授权', 400, 400)
@@ -123,13 +123,13 @@ router.post('/create', authMiddleware, async (req, res) => {
       )
       prepayId = wechatResult?.prepay_id
 
-      db.prepare('UPDATE orders SET openid = ? WHERE id = ?').run(openid, orderId)
+      await db.prepare('UPDATE orders SET openid = ? WHERE id = ?').run(openid, orderId)
     } else {
       return error(res, '不支持的支付方式', 400, 400)
     }
 
     // 更新订单支付信息
-    db.prepare('UPDATE orders SET pay_type = ?, prepay_id = ? WHERE id = ?')
+    await db.prepare('UPDATE orders SET pay_type = ?, prepay_id = ? WHERE id = ?')
       .run(payType, prepayId || null, orderId)
 
     // 构建返回参数
@@ -151,7 +151,7 @@ router.post('/create', authMiddleware, async (req, res) => {
 router.get('/query/:orderId', authMiddleware, async (req, res) => {
   try {
     const db = getDb()
-    const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.orderId, req.userId)
+    const order = await db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.orderId, req.userId)
     if (!order) return error(res, '订单不存在', 404, 404)
 
     let wechatStatus = null
@@ -162,7 +162,7 @@ router.get('/query/:orderId', authMiddleware, async (req, res) => {
         const transactionId = wxOrder?.transaction_id
 
         if (order.status === 'pending' && wechatStatus === 'SUCCESS') {
-          db.prepare('UPDATE orders SET status = ?, transaction_id = ?, paid_at = CURRENT_TIMESTAMP WHERE id = ? AND status = ?')
+          await db.prepare('UPDATE orders SET status = ?, transaction_id = ?, paid_at = CURRENT_TIMESTAMP WHERE id = ? AND status = ?')
             .run('paid', transactionId || null, order.id, 'pending')
         }
       } catch {
@@ -170,7 +170,7 @@ router.get('/query/:orderId', authMiddleware, async (req, res) => {
       }
     }
 
-    const refreshed = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.orderId, req.userId)
+    const refreshed = await db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.orderId, req.userId)
     success(res, {
       orderId: refreshed.id,
       orderNo: refreshed.order_no,
@@ -202,7 +202,7 @@ router.post('/notify', async (req, res) => {
 
     if (outTradeNo && tradeState === 'SUCCESS') {
       const db = getDb()
-      db.prepare('UPDATE orders SET status = ?, transaction_id = ?, paid_at = CURRENT_TIMESTAMP WHERE order_no = ? AND status = ?')
+      await db.prepare('UPDATE orders SET status = ?, transaction_id = ?, paid_at = CURRENT_TIMESTAMP WHERE order_no = ? AND status = ?')
         .run('paid', transactionId || null, outTradeNo, 'pending')
     }
 
@@ -214,15 +214,15 @@ router.post('/notify', async (req, res) => {
 })
 
 // 模拟支付（开发/测试用，未配置微信支付时可用）
-router.post('/mock', authMiddleware, (req, res) => {
+router.post('/mock', authMiddleware, async (req, res) => {
   try {
     const db = getDb()
     const { orderId } = req.body
-    const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(orderId, req.userId)
+    const order = await db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(orderId, req.userId)
     if (!order) return error(res, '订单不存在', 404, 404)
     if (order.status !== 'pending') return error(res, '订单状态不允许支付', 400, 400)
 
-    db.prepare('UPDATE orders SET status = ?, pay_type = ?, transaction_id = ?, paid_at = CURRENT_TIMESTAMP WHERE id = ?')
+    await db.prepare('UPDATE orders SET status = ?, pay_type = ?, transaction_id = ?, paid_at = CURRENT_TIMESTAMP WHERE id = ?')
       .run('paid', 'mock', `MOCK${Date.now()}`, orderId)
 
     success(res, { orderId, status: 'paid' }, '模拟支付成功')

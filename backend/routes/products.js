@@ -4,7 +4,7 @@ import { success } from '../utils/response.js'
 
 const router = Router()
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const db = getDb()
     const { categoryId, keyword, tag, sort = 'new' } = req.query
@@ -27,7 +27,7 @@ router.get('/', (req, res) => {
     else if (sort === 'sales') sql += ' ORDER BY sales DESC'
     else sql += ' ORDER BY is_new DESC, created_at DESC'
 
-    const products = db.prepare(sql).all(...params)
+    const products = await db.prepare(sql).all(...params)
     products.forEach(p => {
       try { p.tags = JSON.parse(p.tags || '[]') } catch { p.tags = [] }
       try { p.specs = JSON.parse(p.specs || '[]') } catch { p.specs = [] }
@@ -40,10 +40,10 @@ router.get('/', (req, res) => {
   }
 })
 
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const db = getDb()
-    const product = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id)
+    const product = await db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id)
     if (!product) return res.status(404).json({ code: 404, message: '商品不存在' })
     try { product.tags = JSON.parse(product.tags || '[]') } catch { product.tags = [] }
     try { product.specs = JSON.parse(product.specs || '[]') } catch { product.specs = [] }

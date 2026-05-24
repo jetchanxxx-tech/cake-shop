@@ -6,9 +6,9 @@ import { success } from '../utils/response.js'
 const router = Router()
 router.use(authMiddleware)
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const db = getDb()
-  const items = db.prepare(`
+  const items = await db.prepare(`
     SELECT p.*, f.created_at as fav_time FROM favorites f
     JOIN products p ON f.product_id = p.id
     WHERE f.user_id = ?
@@ -21,16 +21,16 @@ router.get('/', (req, res) => {
   success(res, items)
 })
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { productId } = req.body
   const db = getDb()
-  db.prepare('INSERT OR IGNORE INTO favorites (user_id, product_id) VALUES (?, ?)').run(req.userId, productId)
+  await db.prepare('INSERT IGNORE INTO favorites (user_id, product_id) VALUES (?, ?)').run(req.userId, productId)
   success(res, null, '已收藏')
 })
 
-router.delete('/:productId', (req, res) => {
+router.delete('/:productId', async (req, res) => {
   const db = getDb()
-  db.prepare('DELETE FROM favorites WHERE user_id = ? AND product_id = ?').run(req.userId, req.params.productId)
+  await db.prepare('DELETE FROM favorites WHERE user_id = ? AND product_id = ?').run(req.userId, req.params.productId)
   success(res, null, '已取消收藏')
 })
 

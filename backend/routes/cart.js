@@ -6,9 +6,9 @@ import { success, error } from '../utils/response.js'
 const router = Router()
 router.use(authMiddleware)
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const db = getDb()
-  const items = db.prepare(`
+  const items = await db.prepare(`
     SELECT c.*, p.name as product_name, p.image as product_image, p.price as product_price, p.specs
     FROM carts c
     JOIN products p ON c.product_id = p.id
@@ -27,23 +27,23 @@ router.get('/', (req, res) => {
   success(res, items)
 })
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { productId, skuId, quantity } = req.body
   const db = getDb()
-  const existing = db.prepare(
+  const existing = await db.prepare(
     'SELECT id, quantity FROM carts WHERE user_id = ? AND product_id = ? AND sku_id = ?'
   ).get(req.userId, productId, skuId)
   if (existing) {
-    db.prepare('UPDATE carts SET quantity = ? WHERE id = ?').run(existing.quantity + quantity, existing.id)
+    await db.prepare('UPDATE carts SET quantity = ? WHERE id = ?').run(existing.quantity + quantity, existing.id)
   } else {
-    db.prepare(
+    await db.prepare(
       'INSERT INTO carts (user_id, product_id, sku_id, quantity) VALUES (?, ?, ?, ?)'
     ).run(req.userId, productId, skuId, quantity)
   }
   success(res, null, '已加入购物车')
 })
 
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const { quantity, selected } = req.body
   const db = getDb()
   const updates = []
@@ -52,13 +52,13 @@ router.put('/:id', (req, res) => {
   if (selected !== undefined) { updates.push('selected = ?'); params.push(selected ? 1 : 0) }
   params.push(req.params.id)
   params.push(req.userId)
-  db.prepare(`UPDATE carts SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...params)
+  await db.prepare(`UPDATE carts SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...params)
   success(res, null, '更新成功')
 })
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   const db = getDb()
-  db.prepare('DELETE FROM carts WHERE id = ? AND user_id = ?').run(req.params.id, req.userId)
+  await db.prepare('DELETE FROM carts WHERE id = ? AND user_id = ?').run(req.params.id, req.userId)
   success(res, null, '已删除')
 })
 

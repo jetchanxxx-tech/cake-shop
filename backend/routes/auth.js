@@ -12,11 +12,11 @@ router.post('/register', async (req, res) => {
     if (!phone || !password) return error(res, '手机号和密码不能为空', 400, 400)
 
     const db = getDb()
-    const exists = db.prepare('SELECT id FROM users WHERE phone = ?').get(phone)
+    const exists = await db.prepare('SELECT id FROM users WHERE phone = ?').get(phone)
     if (exists) return error(res, '该手机号已注册', 400, 400)
 
     const hashed = await bcrypt.hash(password, 10)
-    const result = db.prepare('INSERT INTO users (phone, password, nickname) VALUES (?, ?, ?)').run(phone, hashed, nickname || `用户${phone.slice(-4)}`)
+    const result = await db.prepare('INSERT INTO users (phone, password, nickname) VALUES (?, ?, ?)').run(phone, hashed, nickname || `用户${phone.slice(-4)}`)
 
     const token = generateToken(result.lastInsertRowid)
     success(res, { token, user: { id: result.lastInsertRowid, phone, nickname: nickname || `用户${phone.slice(-4)}` } }, '注册成功')
@@ -31,7 +31,7 @@ router.post('/login', async (req, res) => {
     if (!phone || !password) return error(res, '手机号和密码不能为空', 400, 400)
 
     const db = getDb()
-    const user = db.prepare('SELECT * FROM users WHERE phone = ?').get(phone)
+    const user = await db.prepare('SELECT * FROM users WHERE phone = ?').get(phone)
     if (!user) return error(res, '手机号或密码错误', 400, 400)
 
     const valid = await bcrypt.compare(password, user.password)
@@ -47,10 +47,10 @@ router.post('/login', async (req, res) => {
   }
 })
 
-router.get('/me', authMiddleware, (req, res) => {
+router.get('/me', authMiddleware, async (req, res) => {
   try {
     const db = getDb()
-    const user = db.prepare('SELECT id, phone, nickname, avatar, openid FROM users WHERE id = ?').get(req.userId)
+    const user = await db.prepare('SELECT id, phone, nickname, avatar, openid FROM users WHERE id = ?').get(req.userId)
     if (!user) return error(res, '用户不存在', 404, 404)
     success(res, user)
   } catch (err) {
