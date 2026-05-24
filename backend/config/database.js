@@ -27,7 +27,7 @@ class DbWrapper {
   }
 
   async exec(sql) {
-    await this.pool.execute(sql)
+    await this.pool.query(sql)
   }
 }
 
