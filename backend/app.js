@@ -42,7 +42,7 @@ app.get('/api/health', (req, res) => {
 })
 
 // Serve frontend static files
-const distPath = join(__dirname, '../../frontend/dist')
+const distPath = join(__dirname, '../frontend/dist')
 app.use(express.static(distPath))
 app.get('*', (req, res) => {
   const indexPath = join(distPath, 'index.html')
