@@ -42,10 +42,16 @@ app.get('/api/health', (req, res) => {
 })
 
 // Serve frontend static files
-const distPath = join(__dirname, '../frontend/dist')
+const distPath = join(__dirname, '../../frontend/dist')
 app.use(express.static(distPath))
 app.get('*', (req, res) => {
-  res.sendFile(join(distPath, 'index.html'))
+  const indexPath = join(distPath, 'index.html')
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      console.error('Frontend index.html not found at:', indexPath)
+      res.status(404).send('Frontend build not found. Please run npm run build in the frontend directory.')
+    }
+  })
 })
 
 app.listen(PORT, '0.0.0.0', () => {
