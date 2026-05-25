@@ -36,10 +36,10 @@
       </div>
 
       <div class="detail-card">
-        <div class="amount-row"><span>商品总额</span><span>¥{{ order.total_amount?.toFixed(2) }}</span></div>
-        <div class="amount-row"><span>优惠金额</span><span class="discount">-¥{{ order.discount_amount?.toFixed(2) }}</span></div>
+        <div class="amount-row"><span>商品总额</span><span>¥{{ Number(order.total_amount || 0).toFixed(2) }}</span></div>
+        <div class="amount-row"><span>优惠金额</span><span class="discount">-¥{{ Number(order.discount_amount || 0).toFixed(2) }}</span></div>
         <div class="amount-row"><span>运费</span><span>¥0.00</span></div>
-        <div class="amount-row total"><span>实付金额</span><span class="price">{{ order.pay_amount?.toFixed(2) }}</span></div>
+        <div class="amount-row total"><span>实付金额</span><span class="price">{{ Number(order.pay_amount || 0).toFixed(2) }}</span></div>
       </div>
 
       <div class="detail-card info-card">

@@ -128,7 +128,7 @@ const statusText = s => ({
   completed: '已完成', cancelled: '已取消'
 }[s] || s)
 
-const formatPrice = p => (p || 0).toFixed(2)
+const formatPrice = p => Number(p || 0).toFixed(2)
 const formatDate = d => d ? new Date(d).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'
 
 onMounted(async () => {

@@ -43,8 +43,8 @@
               </div>
             </td>
             <td>
-              <div class="amount">¥{{ order.pay_amount?.toFixed(2) }}</div>
-              <div v-if="order.discount_amount > 0" class="discount">-¥{{ order.discount_amount?.toFixed(2) }}</div>
+              <div class="amount">¥{{ Number(order.pay_amount || 0).toFixed(2) }}</div>
+              <div v-if="order.discount_amount > 0" class="discount">-¥{{ Number(order.discount_amount || 0).toFixed(2) }}</div>
             </td>
             <td>
               <span :class="['status-tag', order.status]">{{ statusText(order.status) }}</span>
@@ -90,9 +90,9 @@
           </div>
         </div>
         <div class="detail-section amount-summary">
-          <div>商品总额: ¥{{ detail.total_amount?.toFixed(2) }}</div>
-          <div>优惠: -¥{{ detail.discount_amount?.toFixed(2) }}</div>
-          <div class="pay">实付: ¥{{ detail.pay_amount?.toFixed(2) }}</div>
+          <div>商品总额: ¥{{ Number(detail.total_amount || 0).toFixed(2) }}</div>
+          <div>优惠: -¥{{ Number(detail.discount_amount || 0).toFixed(2) }}</div>
+          <div class="pay">实付: ¥{{ Number(detail.pay_amount || 0).toFixed(2) }}</div>
         </div>
         <div class="modal-actions">
           <button class="btn-secondary" @click="detail = null">关闭</button>
