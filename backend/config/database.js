@@ -184,6 +184,7 @@ export async function initDatabase() {
   `)
 
   await seedData(db)
+  await seedAdmin(db)
   return db
 }
 
@@ -223,7 +224,9 @@ async function seedData(db) {
   await coupStmt.run('新用户立减20元', 'amount', 20, 100, 999, '2026-12-31')
   await coupStmt.run('满200减30', 'amount', 30, 200, 500, '2026-12-31')
   await coupStmt.run('9折优惠券', 'percent', 0.9, 0, 300, '2026-12-31')
+}
 
+async function seedAdmin(db) {
   const [adminRows] = await pool.execute('SELECT COUNT(*) as c FROM admins')
   if (adminRows[0].c === 0) {
     const hashed = bcrypt.hashSync('admin123', 10)
