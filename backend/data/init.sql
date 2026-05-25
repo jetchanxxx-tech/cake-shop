@@ -195,7 +195,3 @@ INSERT INTO coupons (name, type, value, min_amount, total, end_date) VALUES
 ('新用户立减20元', 'amount', 20, 100, 999, '2026-12-31'),
 ('满200减30', 'amount', 30, 200, 500, '2026-12-31'),
 ('9折优惠券', 'percent', 0.9, 0, 300, '2026-12-31');
-
--- Default admin (password: admin123, bcrypt hashed)
-INSERT INTO admins (username, password, nickname) VALUES
-('admin', '$2a$10$Pg5F5T4lzHGSEwMM/nwuSOEK0O4hTZGQgL0OCxzJviagkXN0QHvOe', '管理员');
