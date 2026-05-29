@@ -61,7 +61,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getOrderDetail, cancelOrder as apiCancelOrder, createPayOrder, queryPayOrder } from '@/api'
+import { getOrderDetail, cancelOrder as apiCancelOrder, createPayOrder, queryPayOrder, getWechatAuthUrl } from '@/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -115,21 +115,61 @@ function appendRedirectUrl(h5Url, redirectUrl) {
   return `${h5Url}${sep}redirect_url=${encodeURIComponent(redirectUrl)}`
 }
 
+function isWechat() {
+  return /micromessenger/i.test(navigator.userAgent)
+}
+
+function invokeWechatPay(params) {
+  return new Promise((resolve, reject) => {
+    const doInvoke = () => {
+      WeixinJSBridge.invoke('getBrandWCPayRequest', params, res => {
+        if (res.err_msg === 'get_brand_wcpay_request:ok') resolve(res)
+        else reject(new Error(res.err_msg || '支付取消或失败'))
+      })
+    }
+    if (typeof WeixinJSBridge === 'undefined') {
+      document.addEventListener('WeixinJSBridgeReady', doInvoke, { once: true })
+    } else {
+      doInvoke()
+    }
+  })
+}
+
 async function pay() {
   if (!order.value) return
   paying.value = true
   try {
-    const payRes = await createPayOrder({
-      orderId: order.value.id,
-      payType: 'wechat_h5'
-    })
-
-    const h5Url = payRes.data?.h5Url || payRes.data?.h5_url
-    const finalUrl = appendRedirectUrl(h5Url, buildReturnUrl())
-    if (!finalUrl) throw new Error('未获取到微信 H5 支付链接')
-    window.location.href = finalUrl
+    if (isWechat()) {
+      try {
+        const payRes = await createPayOrder({
+          orderId: order.value.id,
+          payType: 'wechat_jsapi'
+        })
+        await invokeWechatPay(payRes.data.jsapiParams)
+        await loadData()
+      } catch (e) {
+        const errMsg = typeof e === 'string' ? e : (e?.message || '')
+        if (errMsg.includes('openid')) {
+          const authRes = await getWechatAuthUrl(buildReturnUrl())
+          if (authRes.data?.url) {
+            window.location.href = authRes.data.url
+            return
+          }
+        }
+        throw e
+      }
+    } else {
+      const payRes = await createPayOrder({
+        orderId: order.value.id,
+        payType: 'wechat_h5'
+      })
+      const h5Url = payRes.data?.h5Url || payRes.data?.h5_url
+      const finalUrl = appendRedirectUrl(h5Url, buildReturnUrl())
+      if (!finalUrl) throw new Error('未获取到微信 H5 支付链接')
+      window.location.href = finalUrl
+    }
   } catch (e) {
-    const msg = e?.err_msg || e?.message || '支付失败或已取消'
+    const msg = typeof e === 'string' ? e : (e?.err_msg || e?.message || '支付失败或已取消')
     alert(msg)
   } finally {
     paying.value = false
@@ -147,6 +187,9 @@ onMounted(async () => {
   if (route.query.pay_return) {
     const paid = await pollPaid(route.params.id)
     if (paid) await loadData()
+  }
+  if (route.query.wx_oauth && order.value?.status === 'pending') {
+    pay()
   }
 })
 </script>
